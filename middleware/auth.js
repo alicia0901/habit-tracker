@@ -1,5 +1,9 @@
 const jwt = require('jsonwebtoken');
 
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET が未設定です。公開環境では既定の開発用キーで起動できません');
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 
 function requireAuth(req, res, next) {

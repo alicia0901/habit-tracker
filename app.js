@@ -5,9 +5,13 @@ const habitRoutes = require('./routes/habits');
 
 const app = express();
 
-app.use(express.json());
+// Render等のリバースプロキシ配下で、レート制限がプロキシではなく利用者のIPを見るようにする
+app.set('trust proxy', 1);
+
+app.use(express.json({ limit: '10kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/healthz', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/habits', habitRoutes);
 

@@ -33,8 +33,8 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   const { name } = req.body || {};
-  if (typeof name !== 'string' || !name.trim()) {
-    return res.status(400).json({ error: '習慣名を入力してください' });
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 100) {
+    return res.status(400).json({ error: '習慣名を100文字以内で入力してください' });
   }
   const result = db
     .prepare('INSERT INTO habits (user_id, name) VALUES (?, ?)')

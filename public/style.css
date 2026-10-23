@@ -88,6 +88,13 @@ button.ghost {
 
 .hidden { display: none !important; }
 
+.note {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .error {
   color: var(--danger);
   font-size: 13px;

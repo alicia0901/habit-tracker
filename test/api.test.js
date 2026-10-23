@@ -54,6 +54,17 @@ test('登録・ログイン', async (t) => {
     assert.equal(res.status, 400);
   });
 
+  await t.test('長すぎるユーザー名は 400', async () => {
+    const res = await call('/auth/register', { method: 'POST', body: { username: 'x'.repeat(33), password: 'password123' } });
+    assert.equal(res.status, 400);
+  });
+
+  await t.test('前後の空白は除いて登録・ログインできる', async () => {
+    const res = await call('/auth/login', { method: 'POST', body: { username: '  alice ', password: 'password123' } });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.username, 'alice');
+  });
+
   await t.test('正しいパスワードでログインできる', async () => {
     const res = await call('/auth/login', { method: 'POST', body: { username: 'alice', password: 'password123' } });
     assert.equal(res.status, 200);
@@ -102,6 +113,17 @@ test('習慣の作成・達成切り替え・ストリーク', async () => {
     { date: addDays(today, -1), done: true },
     { date: today, done: false },
   ]);
+});
+
+test('長すぎる習慣名は 400', async () => {
+  const token = await register('grace');
+  const res = await call('/habits', { method: 'POST', token, body: { name: 'あ'.repeat(101) } });
+  assert.equal(res.status, 400);
+});
+
+test('ヘルスチェック', async () => {
+  const res = await fetch(baseUrl.replace('/api', '/healthz'));
+  assert.equal(res.status, 200);
 });
 
 test('不正な日付・未来日は 400', async () => {

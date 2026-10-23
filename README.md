@@ -29,9 +29,23 @@ npm start
 | 環境変数 | 既定値 | 内容 |
 | --- | --- | --- |
 | `PORT` | `3000` | 待ち受けポート |
-| `JWT_SECRET` | `dev-secret-change-me` | トークン署名鍵。公開環境では必ず設定する |
+| `JWT_SECRET` | `dev-secret-change-me` | トークン署名鍵。`NODE_ENV=production` では未設定だと起動を拒否する |
 | `DB_PATH` | `./data.sqlite` | SQLiteファイルのパス(`:memory:` も可) |
 | `APP_TIMEZONE` | `Asia/Tokyo` | 「今日」を判定するタイムゾーン |
+
+## デプロイ (Render)
+
+`render.yaml`(Render Blueprint)を同梱している。Renderのダッシュボードで **New → Blueprint** からこのリポジトリを選ぶと、以下の設定でWebサービスが作られる。
+
+- `npm ci` でビルドし `npm start` で起動、`/healthz` でヘルスチェック
+- `NODE_ENV=production`、`JWT_SECRET` はRenderがランダム値を自動生成(リポジトリに秘密鍵を置かない)
+
+無料プランはディスクが永続化されないため、再起動・再デプロイ・一定時間アクセスが無いときのスリープ復帰でSQLiteのデータは消える(デモ用途として許容し、ログイン画面に明記している)。データを残したい場合は有料プランの永続ディスクを `DB_PATH` に指定する。
+
+公開環境向けに以下の対策を入れている。
+
+- 登録・ログインAPIはIPごとに15分20回までのレート制限(総当たりとbcrypt計算による負荷を抑止)
+- ユーザー名32文字・パスワード8〜128文字・習慣名100文字・リクエストボディ10KBの上限
 
 ## テスト
 
@@ -44,6 +58,7 @@ Node.js標準の `node:test` のみで動作し、追加のテストライブラ
 - `test/streak.test.js` — ストリーク計算(途切れ・月またぎ・今日未達成時の扱い)
 - `test/date.test.js` — タイムゾーン境界(JST 0時/9時)・月末/うるう年・日付形式チェック
 - `test/api.test.js` — インメモリDBでサーバを起動し、認証・CRUD・他ユーザーのデータへのアクセス拒否までをHTTP経由で検証
+- `test/security.test.js` — 本番で `JWT_SECRET` 未設定時に起動を拒否すること・ログインのレート制限
 
 ## API概要
 
