@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.post('/register', (req, res) => {
   const { username, password } = req.body || {};
-  if (!username || !password || password.length < 8) {
+  if (typeof username !== 'string' || !username.trim() || typeof password !== 'string' || password.length < 8) {
     return res.status(400).json({ error: 'ユーザー名と8文字以上のパスワードを入力してください' });
   }
 
@@ -28,8 +28,11 @@ router.post('/register', (req, res) => {
 
 router.post('/login', (req, res) => {
   const { username, password } = req.body || {};
+  if (typeof username !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: 'ユーザー名とパスワードを入力してください' });
+  }
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-  if (!user || !bcrypt.compareSync(password || '', user.password_hash)) {
+  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'ユーザー名またはパスワードが違います' });
   }
 

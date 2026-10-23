@@ -1,53 +1,18 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { todayStr, addDays, isValidDateStr } = require('../lib/date');
+const { computeStreak } = require('../lib/streak');
 
 const router = express.Router();
 router.use(requireAuth);
 
-function toDateStr(d) {
-  return d.toISOString().slice(0, 10);
-}
-
-function addDays(dateStr, delta) {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + delta);
-  return toDateStr(d);
-}
-
-// 連続達成日数(ストリーク)を計算する。
-// 今日分がまだ未達成でも、昨日までが連続していれば「継続中」として扱う
-// (今日はまだ記録するチャンスが残っているため、0にリセットしない)。
-function computeStreak(habitId) {
-  const rows = db
-    .prepare('SELECT date FROM habit_logs WHERE habit_id = ? ORDER BY date DESC')
-    .all(habitId);
-  const doneDates = new Set(rows.map((r) => r.date));
-  if (doneDates.size === 0) return { current: 0, longest: 0 };
-
-  const today = toDateStr(new Date());
-  let cursor = doneDates.has(today) ? today : addDays(today, -1);
-  let current = 0;
-  while (doneDates.has(cursor)) {
-    current += 1;
-    cursor = addDays(cursor, -1);
-  }
-
-  const sortedAsc = [...doneDates].sort();
-  let longest = 0;
-  let run = 0;
-  let prev = null;
-  for (const date of sortedAsc) {
-    if (prev && addDays(prev, 1) === date) {
-      run += 1;
-    } else {
-      run = 1;
-    }
-    longest = Math.max(longest, run);
-    prev = date;
-  }
-
-  return { current, longest };
+function streakFor(habitId, today) {
+  const dates = db
+    .prepare('SELECT date FROM habit_logs WHERE habit_id = ?')
+    .all(habitId)
+    .map((r) => r.date);
+  return computeStreak(dates, today);
 }
 
 router.get('/', (req, res) => {
@@ -55,12 +20,12 @@ router.get('/', (req, res) => {
     .prepare('SELECT id, name, created_at FROM habits WHERE user_id = ? ORDER BY created_at')
     .all(req.userId);
 
-  const today = toDateStr(new Date());
+  const today = todayStr();
   const result = habits.map((h) => {
     const doneToday = !!db
       .prepare('SELECT 1 FROM habit_logs WHERE habit_id = ? AND date = ?')
       .get(h.id, today);
-    return { ...h, doneToday, streak: computeStreak(h.id) };
+    return { ...h, doneToday, streak: streakFor(h.id, today) };
   });
 
   res.json(result);
@@ -68,7 +33,7 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   const { name } = req.body || {};
-  if (!name || !name.trim()) {
+  if (typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: '習慣名を入力してください' });
   }
   const result = db
@@ -94,7 +59,15 @@ router.post('/:id/toggle', (req, res) => {
   if (!assertOwnedHabit(req.userId, req.params.id)) {
     return res.status(404).json({ error: '習慣が見つかりません' });
   }
-  const date = (req.body && req.body.date) || toDateStr(new Date());
+  const today = todayStr();
+  const date = (req.body && req.body.date) || today;
+  if (!isValidDateStr(date)) {
+    return res.status(400).json({ error: '日付は YYYY-MM-DD 形式で指定してください' });
+  }
+  if (date > today) {
+    return res.status(400).json({ error: '未来の日付は記録できません' });
+  }
+
   const existing = db
     .prepare('SELECT id FROM habit_logs WHERE habit_id = ? AND date = ?')
     .get(req.params.id, date);
@@ -105,7 +78,7 @@ router.post('/:id/toggle', (req, res) => {
     db.prepare('INSERT INTO habit_logs (habit_id, date) VALUES (?, ?)').run(req.params.id, date);
   }
 
-  res.json({ date, done: !existing, streak: computeStreak(req.params.id) });
+  res.json({ date, done: !existing, streak: streakFor(req.params.id, today) });
 });
 
 // 直近N日分(既定30日)の達成状況(ヒートマップ表示用)
@@ -113,12 +86,11 @@ router.get('/:id/logs', (req, res) => {
   if (!assertOwnedHabit(req.userId, req.params.id)) {
     return res.status(404).json({ error: '習慣が見つかりません' });
   }
-  const days = Math.min(Number(req.query.days) || 30, 365);
-  const today = toDateStr(new Date());
-  const since = addDays(today, -(days - 1));
+  const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 365);
+  const since = addDays(todayStr(), -(days - 1));
 
   const rows = db
-    .prepare('SELECT date FROM habit_logs WHERE habit_id = ? AND date >= ? ORDER BY date')
+    .prepare('SELECT date FROM habit_logs WHERE habit_id = ? AND date >= ?')
     .all(req.params.id, since);
   const doneDates = new Set(rows.map((r) => r.date));
 
