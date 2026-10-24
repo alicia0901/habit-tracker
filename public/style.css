@@ -122,9 +122,14 @@ button.ghost {
   gap: 12px;
 }
 
-.habit-name {
+.habit-info {
   flex: 1;
+  min-width: 0;
+}
+
+.habit-name {
   font-size: 15px;
+  overflow-wrap: anywhere;
 }
 
 .streak {
@@ -133,6 +138,7 @@ button.ghost {
 }
 
 .check-btn {
+  flex-shrink: 0;
   background: transparent;
   border: 2px solid var(--border);
   border-radius: 50%;

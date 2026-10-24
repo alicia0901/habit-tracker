@@ -63,7 +63,7 @@ async function loadHabits() {
     li.innerHTML = `
       <div class="habit-top">
         <button class="check-btn${habit.doneToday ? ' done' : ''}" title="今日の達成を切り替え">${habit.doneToday ? '✓' : ''}</button>
-        <div>
+        <div class="habit-info">
           <div class="habit-name">${escapeHtml(habit.name)}</div>
           <div class="streak">現在 ${habit.streak.current}日連続 / 最長 ${habit.streak.longest}日</div>
         </div>
